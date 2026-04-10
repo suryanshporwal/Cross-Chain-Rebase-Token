@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 /**
  * @title RebaseToken
  * @author Suryansh Porwal
@@ -10,8 +11,9 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * @notice The interest rate in the smart contract can only decrease.
  */
 
-contract RebaseToken is ERC20, Ownable {
+contract RebaseToken is ERC20, Ownable,AccessControl {
     uint256 private constant PRECISION_FACTOR = 1e18;
+    bytes32 private constant MINT_AND_BURN_ROLE = keccak256("MINT_AND_BURN_ROLE");
     uint256 private s_currentInterestRate = 5e10; // 0.00000005 %
     mapping(address user => uint256 interestAmount) private s_userInterestRate;
     mapping(address user => uint256 lastTimestamp) private s_userLastUpdatedTimestamp;
@@ -20,6 +22,10 @@ contract RebaseToken is ERC20, Ownable {
     error RebaseToken__AmountCantBeZero();
 
     constructor() ERC20("Rebase Token", "RBT") Ownable(msg.sender) {}
+
+    function grantMintAndBurnRole(address _account) internal {
+        _grantRole(MINT_AND_BURN_ROLE,_account);
+    }
 
     /**
      * @notice Set the interest rate in the contract
@@ -33,17 +39,6 @@ contract RebaseToken is ERC20, Ownable {
             revert RebaseToken__InterestRateCanOnlyDecrease();
         }
         s_currentInterestRate = _newInterestRate;
-    }
-
-    /**
-     * @notice Get the principle balance of a user. This is the number of tokens that have currently been minted to the user,
-     *         not including any interest that has accrued since the last time the user interacted with the protocol
-     * @param _user The user to get the princple balance of
-     * @return The principle balance of the user
-     */
-
-    function principleBalance(address _user) external view returns (uint256) {
-        return super.balanceOf(_user);
     }
 
     /**
@@ -65,7 +60,7 @@ contract RebaseToken is ERC20, Ownable {
      * @param _amount amount of tokens required to be minted
      */
 
-    function mint(address _to, uint256 _amount) external {
+    function mint(address _to, uint256 _amount) external onlyRole(MINT_AND_BURN_ROLE){
         if (_amount <= 0) revert RebaseToken__AmountCantBeZero();
         _mintAccruedInterest(_to);
         s_userInterestRate[_to] = s_currentInterestRate;
@@ -140,7 +135,7 @@ contract RebaseToken is ERC20, Ownable {
         _mint(_user, balanceIncrease);
     }
 
-    function burn(address _from, uint256 _amount) external {
+    function burn(address _from, uint256 _amount) external onlyRole(MINT_AND_BURN_ROLE) {
         if (_amount == type(uint256).max) {
             // So, no dust remaining
             _amount = balanceOf(_from);
@@ -154,7 +149,18 @@ contract RebaseToken is ERC20, Ownable {
         return s_userInterestRate[_user];
     }
 
-    function getCurrentInterestRete() external view returns(uint256) {
+    function getCurrentInterestRete() external view returns (uint256) {
         return s_currentInterestRate;
+    }
+
+    /**
+     * @notice Get the principle balance of a user. This is the number of tokens that have currently been minted to the user,
+     *         not including any interest that has accrued since the last time the user interacted with the protocol
+     * @param _user The user to get the princple balance of
+     * @return The principle balance of the user
+     */
+
+    function getPrincipleBalance(address _user) external view returns (uint256) {
+        return super.balanceOf(_user);
     }
 }
