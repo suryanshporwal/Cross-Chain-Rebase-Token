@@ -14,7 +14,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 contract RebaseToken is ERC20, Ownable,AccessControl {
     uint256 private constant PRECISION_FACTOR = 1e18;
     bytes32 private constant MINT_AND_BURN_ROLE = keccak256("MINT_AND_BURN_ROLE");
-    uint256 private s_currentInterestRate = 5e10; // 0.00000005 %
+    uint256 private s_currentInterestRate = (5 * PRECISION_FACTOR)/1e8; // 10^-8 == 1/10^8
     mapping(address user => uint256 interestAmount) private s_userInterestRate;
     mapping(address user => uint256 lastTimestamp) private s_userLastUpdatedTimestamp;
 
@@ -23,7 +23,7 @@ contract RebaseToken is ERC20, Ownable,AccessControl {
 
     constructor() ERC20("Rebase Token", "RBT") Ownable(msg.sender) {}
 
-    function grantMintAndBurnRole(address _account) internal {
+    function grantMintAndBurnRole(address _account) external onlyOwner {
         _grantRole(MINT_AND_BURN_ROLE,_account);
     }
 
@@ -136,10 +136,6 @@ contract RebaseToken is ERC20, Ownable,AccessControl {
     }
 
     function burn(address _from, uint256 _amount) external onlyRole(MINT_AND_BURN_ROLE) {
-        if (_amount == type(uint256).max) {
-            // So, no dust remaining
-            _amount = balanceOf(_from);
-        }
         _mintAccruedInterest(_from);
         _burn(_from, _amount);
     }
@@ -149,7 +145,7 @@ contract RebaseToken is ERC20, Ownable,AccessControl {
         return s_userInterestRate[_user];
     }
 
-    function getCurrentInterestRete() external view returns (uint256) {
+    function getCurrentInterestRate() external view returns (uint256) {
         return s_currentInterestRate;
     }
 
