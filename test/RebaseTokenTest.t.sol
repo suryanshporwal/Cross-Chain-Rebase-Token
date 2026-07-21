@@ -10,12 +10,14 @@ contract RebaseTokenTest is Test {
     RebaseToken private rebaseToken;
     Vault private vault;
 
+    uint256 constant SEND_VALUE = 1e30;
+
     address public owner = makeAddr("owner");
     address public user = makeAddr("user");
 
     function setUp() public {
         vm.startPrank(owner);
-        vm.deal(owner, 1e30);
+        vm.deal(owner, SEND_VALUE);
         rebaseToken = new RebaseToken();
         vault = new Vault(address(rebaseToken));
         RebaseToken(rebaseToken).grantMintAndBurnRole(address(vault));

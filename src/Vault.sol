@@ -18,7 +18,7 @@ contract Vault {
 
     constructor(address _rebaseToken) {
         i_rebaseToken = _rebaseToken;
-    }   
+    }
 
     receive() external payable {}
 
@@ -30,24 +30,24 @@ contract Vault {
      * @notice Allows users to deposit ETH into the vault and mint rebase tokens in return
      */
 
-    function deposit() external payable{
+    function deposit() external payable {
         // We need to use the amount of ETH the user has sent to mint tokens to the user
-        IRebaseToken(i_rebaseToken).mint(msg.sender,msg.value);
-        emit Deposit(msg.sender,msg.value);
+        IRebaseToken(i_rebaseToken).mint(msg.sender, msg.value);
+        emit Deposit(msg.sender, msg.value);
     }
 
-    function redeem(uint256 _amount) external{
+    function redeem(uint256 _amount) external {
         // CEI
-        if(_amount==type(uint256).max){
-            _amount=IRebaseToken(i_rebaseToken).balanceOf(msg.sender);
+        if (_amount == type(uint256).max) {
+            _amount = IRebaseToken(i_rebaseToken).balanceOf(msg.sender);
         }
         // 1. burn the tokens from the user
-        IRebaseToken(i_rebaseToken).burn(msg.sender,_amount);
+        IRebaseToken(i_rebaseToken).burn(msg.sender, _amount);
         // 2. we need to tsend the user ETH
-        (bool success,)= payable(msg.sender).call{value: _amount}("");
-        if(!success){
+        (bool success,) = payable(msg.sender).call{value: _amount}("");
+        if (!success) {
             revert Vault__RedeemFailed();
         }
-        emit Redeem(msg.sender,_amount);
+        emit Redeem(msg.sender, _amount);
     }
 }
