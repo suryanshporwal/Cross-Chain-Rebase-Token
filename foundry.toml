@@ -2,7 +2,7 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-rpc_endpoints = { hoodi = "https://eth-hoodi.g.alchemy.com/v2/tqG_1kOtuO5_Isg5E__dU", sepolia = "https://eth-sepolia.g.alchemy.com/v2/W0_zQVvK7NajymL6rQBsN" }
+rpc_endpoints = { hoodi = "https://rpc.hoodi.ethpandaops.io", sepolia = "https://ethereum-sepolia-rpc.publicnode.com" }
 
 remappings = [
     "@openzeppelin/=lib/openzeppelin-contracts/",
