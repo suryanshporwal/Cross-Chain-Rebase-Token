@@ -50,6 +50,7 @@ contract CrossChainTest is Test {
 
     uint32 constant HOODI_CHAIN_ID = 560048;
     uint32 constant SEPOLIA_CHAIN_ID = 11155111;
+    uint256 constant SEND_VALUE = 1e5;
 
     function setUp() public {
         sepoliaFork = vm.createSelectFork("sepolia");
@@ -78,15 +79,19 @@ contract CrossChainTest is Test {
 
         // Deployed Token Pool on sepolia
         vm.selectFork(sepoliaFork);
+        vm.startPrank(Owner);
         sepoliaPool = new RebaseTokenPool(
             IERC20(address(sepoliaToken)), sepoliaNetworkDetails.rmnProxyAddress, sepoliaNetworkDetails.routerAddress
         );
+        vm.stopPrank();
 
         // Deployed Token Pool on Hoodi
+        vm.startPrank(Owner);
         vm.selectFork(hoodiFork);
         hoodiPool = new RebaseTokenPool(
             IERC20(address(hoodiToken)), hoodiNetworkDetails.rmnProxyAddress, hoodiNetworkDetails.routerAddress
         );
+        vm.stopPrank();
 
         // Provided mint and burn rights to vault and tokenPool on sepolia
         vm.selectFork(sepoliaFork);
@@ -142,6 +147,7 @@ contract CrossChainTest is Test {
             .setPool(address(hoodiToken), address(hoodiPool));
         vm.stopPrank();
 
+        // Apply the chain updates so that both chains get to interact with each other
         _applyChainUpdates(
             sepoliaFork,
             address(sepoliaPool),
@@ -182,41 +188,63 @@ contract CrossChainTest is Test {
             data: "", // No additional data payload
             tokenAmounts: tokenAmounts,
             feeToken: localNetworkDetails.linkAddress,
-            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 0}))
+            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 500_000}))
         });
 
+        // get the fee
         uint256 fee =
             IRouterClient(localNetworkDetails.routerAddress).getFee(remoteNetworkDetails.chainSelector, message);
 
+        console.log("Active fork", vm.activeFork());
+        console.log("LINK", localNetworkDetails.linkAddress);
+        console.log("Router", localNetworkDetails.routerAddress);
+        console.log("Chain", block.chainid);
+        console.log(
+            "Faucet LINK balance:", IERC20(localNetworkDetails.linkAddress).balanceOf(address(ccipLocalSimulatorFork))
+        );
+
+        // mint the fee link tokens to the sender, to complete transaction
         ccipLocalSimulatorFork.requestLinkFromFaucet(sender, fee);
 
+        // sender approved the router to spend his link tokens(Fee amount)
         vm.startPrank(sender);
         IERC20(localNetworkDetails.linkAddress).approve(localNetworkDetails.routerAddress, fee);
 
+        // sender then approved the router to spend his tokens, in order to forward the tokens cross-chain
         IERC20(address(localToken)).approve(localNetworkDetails.routerAddress, amountToBridge);
 
         uint256 localBalanceBefore = RebaseToken(localToken).balanceOf(sender);
 
+        // ccip forwards the message
         IRouterClient(localNetworkDetails.routerAddress).ccipSend(remoteNetworkDetails.chainSelector, message);
 
+        // Fetch User balance on local(Source) chain
         uint256 localBalanceAfter = RebaseToken(localToken).balanceOf(sender);
+
+        // Fetch User interest on local(Source) chain
+        uint256 localUserInterestRate = RebaseToken(localToken).getUserInterestRate(sender);
         vm.stopPrank();
+
         assertEq(localBalanceAfter, localBalanceBefore - amountToBridge);
 
         vm.warp(block.timestamp + 20 minutes); // Fast Forward Time
 
-        // Fetched balance on remoteFork for the rebaseToken
+        // Get destination balance before routing
         vm.selectFork(remoteFork);
         uint256 remoteBalanceBefore = RebaseToken(remoteToken).balanceOf(sender);
 
-        // Return to source chain
+        // Return to source chain because simulator routes from active chain
         vm.selectFork(localFork);
-
         ccipLocalSimulatorFork.switchChainAndRouteMessage(remoteFork);
 
-        vm.selectFork(remoteFork); // More explicit
+        // Now check destination state
+        vm.selectFork(remoteFork);
+        // // Fetch User balance on Remote(Destinatio)) chain
         uint256 remoteBalanceAfter = RebaseToken(remoteToken).balanceOf(sender);
         assertEq(remoteBalanceAfter, remoteBalanceBefore + amountToBridge);
+        // Fetch User Interest on Remote(Destination) chain
+        uint256 remoteUserInterestRate = RebaseToken(remoteToken).getUserInterestRate(sender);
+        assertEq(localUserInterestRate, remoteUserInterestRate);
     }
 
     function _applyChainUpdates(
@@ -227,6 +255,7 @@ contract CrossChainTest is Test {
         address remoteTokenAddress
     ) private {
         vm.selectFork(forkId);
+        vm.prank(Owner);
 
         bytes[] memory remotePoolAddresses = new bytes[](1);
         remotePoolAddresses[0] = abi.encode(remotePoolAddress);
@@ -241,7 +270,49 @@ contract CrossChainTest is Test {
             inboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0})
         });
 
-        vm.prank(Owner);
         RebaseTokenPool(localPoolAddress).applyChainUpdates(new uint64[](0), chainsToAdd);
+    }
+
+    function testBridgeAllTokens() public {
+        vm.selectFork(sepoliaFork);
+        vm.deal(User, SEND_VALUE);
+        vm.prank(User);
+
+        Vault(payable(address(vault))).deposit{value: SEND_VALUE}();
+
+        assertEq(sepoliaToken.balanceOf(User), SEND_VALUE);
+
+        _bridgeTokens(
+            sepoliaFork,
+            hoodiFork,
+            address(sepoliaToken),
+            address(hoodiToken),
+            User,
+            SEND_VALUE,
+            sepoliaNetworkDetails,
+            hoodiNetworkDetails
+        );
+
+        vm.selectFork(sepoliaFork);
+        console.log(sepoliaToken.hasRole(keccak256("MINT_AND_BURN_ROLE"), address(sepoliaPool)));
+
+        vm.selectFork(hoodiFork);
+        vm.warp(block.timestamp + 20 minutes);
+
+        uint256 amount = hoodiToken.balanceOf(User);
+        console.log(hoodiToken.hasRole(keccak256("MINT_AND_BURN_ROLE"), address(hoodiPool)));
+        console.log("User Balance: ", amount);
+
+        
+        _bridgeTokens(
+            hoodiFork,
+            sepoliaFork,
+            address(hoodiToken),
+            address(sepoliaToken),
+            User,
+            amount,
+            hoodiNetworkDetails,
+            sepoliaNetworkDetails
+        );
     }
 }

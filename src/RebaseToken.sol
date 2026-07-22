@@ -11,10 +11,10 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
  * @notice The interest rate in the smart contract can only decrease.
  */
 
-contract RebaseToken is ERC20, Ownable,AccessControl {
+contract RebaseToken is ERC20, Ownable, AccessControl {
     uint256 private constant PRECISION_FACTOR = 1e18;
     bytes32 private constant MINT_AND_BURN_ROLE = keccak256("MINT_AND_BURN_ROLE");
-    uint256 private s_currentInterestRate = (5 * PRECISION_FACTOR)/1e8; // 10^-8 == 1/10^8
+    uint256 private s_currentInterestRate = (5 * PRECISION_FACTOR) / 1e8; // 10^-8 == 1/10^8
     mapping(address user => uint256 interestAmount) private s_userInterestRate;
     mapping(address user => uint256 lastTimestamp) private s_userLastUpdatedTimestamp;
 
@@ -24,7 +24,7 @@ contract RebaseToken is ERC20, Ownable,AccessControl {
     constructor() ERC20("Rebase Token", "RBT") Ownable(msg.sender) {}
 
     function grantMintAndBurnRole(address _account) external onlyOwner {
-        _grantRole(MINT_AND_BURN_ROLE,_account);
+        _grantRole(MINT_AND_BURN_ROLE, _account);
     }
 
     /**
@@ -60,7 +60,7 @@ contract RebaseToken is ERC20, Ownable,AccessControl {
      * @param _amount amount of tokens required to be minted
      */
 
-    function mint(address _to, uint256 _amount) external onlyRole(MINT_AND_BURN_ROLE){
+    function mint(address _to, uint256 _amount) external onlyRole(MINT_AND_BURN_ROLE) {
         if (_amount <= 0) revert RebaseToken__AmountCantBeZero();
         _mintAccruedInterest(_to);
         s_userInterestRate[_to] = s_currentInterestRate;
@@ -115,6 +115,30 @@ contract RebaseToken is ERC20, Ownable,AccessControl {
             s_userInterestRate[_recipient] = s_currentInterestRate;
         }
         return super.transfer(_recipient, _amount);
+    }
+    
+    /**
+     * @notice Transfer tokens from one user to another
+     */
+
+    function transferFrom(address from, address to, uint256 _amount) public override returns (bool) {
+       if (_amount <= 0) revert RebaseToken__AmountCantBeZero();
+        // CEI
+        _mintAccruedInterest(from);
+        _mintAccruedInterest(to);
+        if (_amount == type(uint256).max) {
+            _amount = balanceOf(from);
+        }
+        if (balanceOf(to) == 0) {
+            // makes the user which has not balance rate inherit the interest rate of it's sender
+            // if the user already deposits some amount already, this statement does not gets executed and new interest rate
+            // will be applicable
+            s_userInterestRate[to] = s_userInterestRate[from];
+        } else {
+            // reciever already owns some tokens so we need to apply new interest rate on whole amount, no matter what
+            s_userInterestRate[to] = s_currentInterestRate;
+        }
+        return super.transferFrom(from,to, _amount);
     }
 
     /**
