@@ -13,11 +13,11 @@ contract RebaseTokenPool is TokenPool {
         TokenPool(_token, DEFAULT_DECIMALS, DISABLE_ADVANCE_POOL_HOOKS, _rmnProxy, _router)
     {}
 
-    function _lockOrBurn(uint64 , uint256 amount) internal override {
+    function _lockOrBurn(uint64, uint256 amount) internal override {
         RebaseToken(address(getToken())).burn(address(this), amount);
     }
 
-    function _releaseOrMint(address receiver, uint256 amount, uint64 ) internal override {
+    function _releaseOrMint(address receiver, uint256 amount, uint64) internal override {
         RebaseToken(address(getToken())).mint(receiver, amount);
     }
 }

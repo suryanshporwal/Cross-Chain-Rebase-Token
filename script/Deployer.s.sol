@@ -13,7 +13,6 @@ import {
 } from "@chainlink/contracts-ccip/contracts/tokenAdminRegistry/RegistryModuleOwnerCustom.sol";
 import {TokenAdminRegistry} from "@chainlink/contracts-ccip/contracts/tokenAdminRegistry/TokenAdminRegistry.sol";
 
-
 contract TokenAndPoolDeployer is Script {
     function run() public returns (RebaseToken token, RebaseTokenPool pool) {
         CCIPLocalSimulatorFork ccipLocalSimulatorFork = new CCIPLocalSimulatorFork();
