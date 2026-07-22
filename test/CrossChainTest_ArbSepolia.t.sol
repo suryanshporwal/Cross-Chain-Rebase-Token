@@ -2,7 +2,6 @@
 pragma solidity ^0.8.19;
 
 import {RebaseToken} from "../src/RebaseToken.sol";
-import {IRebaseToken} from "../src/Interfaces/IRebaseToken.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {RebaseTokenPool} from "../src/RebaseTokenPool.sol";
 import {Test, console} from "forge-std/Test.sol";
