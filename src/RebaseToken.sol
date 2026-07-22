@@ -116,13 +116,16 @@ contract RebaseToken is ERC20, Ownable, AccessControl {
         }
         return super.transfer(_recipient, _amount);
     }
-    
+
     /**
      * @notice Transfer tokens from one user to another
+     * @param from User to transfer tokens on behalf of
+     * @param to address to transfer tokens to
+     * @param _amount amount of tokens to transfer
      */
 
     function transferFrom(address from, address to, uint256 _amount) public override returns (bool) {
-       if (_amount <= 0) revert RebaseToken__AmountCantBeZero();
+        if (_amount <= 0) revert RebaseToken__AmountCantBeZero();
         // CEI
         _mintAccruedInterest(from);
         _mintAccruedInterest(to);
@@ -138,7 +141,7 @@ contract RebaseToken is ERC20, Ownable, AccessControl {
             // reciever already owns some tokens so we need to apply new interest rate on whole amount, no matter what
             s_userInterestRate[to] = s_currentInterestRate;
         }
-        return super.transferFrom(from,to, _amount);
+        return super.transferFrom(from, to, _amount);
     }
 
     /**

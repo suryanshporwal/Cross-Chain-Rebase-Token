@@ -15,6 +15,7 @@ contract RebaseTokenTest is Test {
     address public owner = makeAddr("owner");
     address public user = makeAddr("user");
 
+
     function setUp() public {
         vm.startPrank(owner);
         vm.deal(owner, SEND_VALUE);
