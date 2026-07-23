@@ -232,7 +232,7 @@ contract CrossChainTest is Test {
 
         // Now check destination state
         vm.selectFork(remoteFork);
-        // // Fetch User balance on Remote(Destinatio)) chain
+        // // Fetch User balance on Remote(Destination)) chain
         uint256 remoteBalanceAfter = RebaseToken(remoteToken).balanceOf(sender);
         assertEq(remoteBalanceAfter, remoteBalanceBefore + amountToBridge);
         // Fetch User Interest on Remote(Destination) chain

@@ -32,7 +32,7 @@ contract Vault {
 
     function deposit() external payable {
         // We need to use the amount of ETH the user has sent to mint tokens to the user
-        IRebaseToken(i_rebaseToken).mint(msg.sender, msg.value);
+        IRebaseToken(i_rebaseToken).mint(msg.sender, msg.value,IRebaseToken(address(i_rebaseToken)).getUserInterestRate(address(msg.sender)));
         emit Deposit(msg.sender, msg.value);
     }
 

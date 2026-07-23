@@ -18,6 +18,6 @@ contract RebaseTokenPool is TokenPool {
     }
 
     function _releaseOrMint(address receiver, uint256 amount, uint64) internal override {
-        RebaseToken(address(getToken())).mint(receiver, amount);
+        RebaseToken(address(getToken())).mint(receiver, amount,RebaseToken(address(getToken())).getUserInterestRate(address(msg.sender)));
     }
 }
